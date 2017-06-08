@@ -110,10 +110,9 @@ void DSMainWnd::onOpen()
     if(player) player->exit = true;
     QThread::msleep(100);
 
-
     player = new DSPlayer;
-//    player->strFilename = "c:/users/xueguoliang/desktop/1.avi";
-    player->strFilename = "rtmp://192.168.1.152/live/abc";
+    player->strFilename = "c:/users/xueguoliang/desktop/1.mp4";
+    //    player->strFilename = "rtmp://192.168.1.152/live/abc";
     player->start();
     connect(player, SIGNAL(imageReady(QImage)),
             this, SLOT(imageReady(QImage)));
@@ -175,11 +174,20 @@ void DSMainWnd::valueChanged(int value)
         float percent = value*1.0/progress->maximum();
         int64_t stamp = percent * player->ic->streams[player->vIndex]->duration*percent;
 
-        av_seek_frame(player->ic,
-                      player->vIndex,
-                      stamp,
-                      AVSEEK_FLAG_BACKWARD);
+        {
+            DSLock(player->reader.mutex);
 
+            foreach (AVPacket* pkt, player->reader.pkts) {
+                av_packet_unref(pkt);
+                player->reader.pkts_free.push_back(pkt);
+            }
+            player->reader.pkts.clear();
+
+            av_seek_frame(player->ic,
+                          player->vIndex,
+                          stamp,
+                          AVSEEK_FLAG_BACKWARD);
+        }
         player->pause = pause;
     }
     progressValue = value;

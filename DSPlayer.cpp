@@ -11,6 +11,7 @@ DSPlayer::~DSPlayer()
 
 void DSPlayer::run()
 {
+
     play();
 }
 
@@ -21,12 +22,12 @@ void DSPlayer::initSwr(double speed)
 
     if(swr) swr_free(&swr);
     swr = swr_alloc_set_opts(NULL, aCtx->channel_layout,
-                                         AV_SAMPLE_FMT_S16,
-                                         format.sampleRate()/speed,
-                                         aCtx->channel_layout,
-                                         aCtx->sample_fmt,
-                                         aCtx->sample_rate,
-                                         0, NULL);
+                             AV_SAMPLE_FMT_S16,
+                             format.sampleRate()/speed,
+                             aCtx->channel_layout,
+                             aCtx->sample_fmt,
+                             aCtx->sample_rate,
+                             0, NULL);
     swr_init(swr);
 
 }
@@ -34,6 +35,16 @@ void DSPlayer::initSwr(double speed)
 int DSPlayer::play()
 {
     int ret = avformat_open_input(&ic, this->strFilename.toLocal8Bit().data(), NULL, NULL);
+
+    reader.pause = false;
+    reader.ic = ic;
+    reader.buffer = 100;
+
+    if(this->isNetworkFile)
+        reader.buffer = 2000;
+
+    reader.start();
+
     if(ret < 0)
     {
         qDebug() << "open input error" << ret;
@@ -46,6 +57,7 @@ int DSPlayer::play()
         return 0;
     }
 
+    reader.ic = ic;
     aIndex = 0;
     vIndex = 0;
     AVCodecContext* vCtx;
@@ -112,20 +124,20 @@ int DSPlayer::play()
 
     initSwr(1);
     SwsContext* sws = sws_getCachedContext(NULL,
-                               ic->streams[vIndex]->codec->width,
-                               ic->streams[vIndex]->codec->height,
-                               ic->streams[vIndex]->codec->pix_fmt,
-                               ic->streams[vIndex]->codec->width,
-                               ic->streams[vIndex]->codec->height,
-                               AV_PIX_FMT_RGBA,
-                               SWS_BICUBIC, NULL, NULL, NULL);
+                                           ic->streams[vIndex]->codec->width,
+                                           ic->streams[vIndex]->codec->height,
+                                           ic->streams[vIndex]->codec->pix_fmt,
+                                           ic->streams[vIndex]->codec->width,
+                                           ic->streams[vIndex]->codec->height,
+                                           AV_PIX_FMT_RGBA,
+                                           SWS_BICUBIC, NULL, NULL, NULL);
 
     QImage image = QImage(ic->streams[vIndex]->codec->width,
-                   ic->streams[vIndex]->codec->height,
-                   QImage::Format_RGBA8888);
+                          ic->streams[vIndex]->codec->height,
+                          QImage::Format_RGBA8888);
 
     AVFrame* frame = av_frame_alloc();
-    AVPacket* pkt = av_packet_alloc();
+    //  AVPacket* pkt = av_packet_alloc();
 
     int out_size = 320000*2;
     uint8_t* play_buf = (uint8_t*)av_malloc(out_size);
@@ -142,9 +154,17 @@ int DSPlayer::play()
             QThread::msleep(100);
         }
 
+#if 0
         int ret = av_read_frame(ic, pkt);
         if(ret < 0)
             break;
+#endif
+
+        AVPacket* pkt = reader.getPacket();
+        if(pkt == NULL){
+            QThread::msleep(100);
+            continue;
+        }
 
         if(pkt->stream_index == aIndex)
         {
@@ -153,7 +173,7 @@ int DSPlayer::play()
                 if(avcodec_receive_frame(aCtx, frame) == 0)
                 {
                     ret = swr_convert(swr, &play_buf, out_size,
-                                (const uint8_t**)frame->data, frame->nb_samples);
+                                      (const uint8_t**)frame->data, frame->nb_samples);
 
                     while(output->bytesFree() < ret*4)
                     {
@@ -180,10 +200,14 @@ int DSPlayer::play()
         }
 
         av_packet_unref(pkt);
+        reader.setFreePacket(pkt);
     }
 
+    reader.exit = true;
+    QThread::msleep(200);
+
     av_free(play_buf);
-    av_packet_free(&pkt);
+    //   av_packet_free(&pkt);
     av_frame_free(&frame);
     avformat_free_context(ic);
     swr_free(&swr);
@@ -193,7 +217,86 @@ int DSPlayer::play()
     return 0;
 }
 
+AVPacket *DSReader::getFreePacket()
+{
+    {
+        DSLock(mutex);
+        if(this->pkts_free.size() > 0)
+        {
+            AVPacket* pkt = pkts_free.first();
+            pkts_free.removeFirst();
+            return pkt;
+        }
+    }
 
+    return av_packet_alloc();
+}
 
+void DSReader::setFreePacket(AVPacket *pkt)
+{
+    {
+        DSLock(mutex);
+        pkts_free.push_back(pkt);
+    }
+}
 
+AVPacket *DSReader::getPacket()
+{
+    AVPacket* pkt = NULL;
+    {
+        DSLock(mutex);
+        if(pkts.size() == 0) return NULL;
 
+        pkt = pkts.first();
+        pkts.removeFirst();
+    }
+
+    return pkt;
+}
+
+void DSReader::setPacket(AVPacket *pkt)
+{
+    DSLock(mutex);
+    pkts.push_back(pkt);
+}
+
+void DSReader::run()
+{
+    while(!exit)
+    {
+        while(pause)
+        {
+            QThread::msleep(100);
+        }
+
+        if(pkts.size() > buffer)
+        {
+            QThread::msleep(100);
+            continue;
+        }
+
+        AVPacket* pkt = getFreePacket();
+
+        {
+            DSLock(mutex);
+            int ret = av_read_frame(ic, pkt);
+            if(ret < 0)
+            {
+                setFreePacket(pkt);
+                continue;
+            }
+        }
+
+        setPacket(pkt);
+    }
+
+    foreach (AVPacket* pkt, pkts) {
+        av_packet_free(&pkt);
+    }
+    foreach (AVPacket* pkt, pkts_free) {
+        av_packet_free(&pkt);
+    }
+
+    pkts.clear();
+    pkts_free.clear();
+}

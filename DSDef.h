@@ -16,6 +16,7 @@
 #include <QDebug>
 #include <QTimerEvent>
 #include <QMouseEvent>
+#include <QMutex>
 extern "C"
 {
 #include "libavcodec/avcodec.h"

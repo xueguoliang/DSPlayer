@@ -3,6 +3,44 @@
 
 #include "DSDef.h"
 
+class DSAutoLock
+{
+public:
+    DSAutoLock(QMutex& mutex) : mutex(mutex)
+    {
+        mutex.lock();
+    }
+    ~DSAutoLock()
+    {
+        mutex.unlock();
+    }
+public:
+    QMutex& mutex;
+};
+
+#define DSLock(mutex) DSAutoLock __lock__xx__(mutex); Q_UNUSED(__lock__xx__)
+
+class DSReader : public QThread
+{
+public:
+    AVFormatContext* ic = NULL;
+    QList<AVPacket*> pkts;
+    QList<AVPacket*> pkts_free;
+
+    AVPacket *getFreePacket();
+    void setFreePacket(AVPacket* pkt);
+
+    AVPacket* getPacket();
+    void setPacket(AVPacket* pkt);
+
+    QMutex mutex;
+
+    bool pause = true;
+    bool exit = false;
+    int buffer;
+    void run();
+};
+
 class DSPlayer : public QThread
 {
     Q_OBJECT
@@ -11,7 +49,11 @@ public:
     ~DSPlayer();
 
     QString strFilename;
+    bool isNetworkFile =false;
     void run();
+
+    DSReader reader;
+
 
     AVFormatContext* ic = NULL;
     QAudioOutput* output;

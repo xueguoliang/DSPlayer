@@ -28,8 +28,6 @@ public:
     QLabel* speedLabel;
     QDoubleSpinBox* speed;
 
-
-
     void keyPressEvent(QKeyEvent *ev);
 signals:
 
