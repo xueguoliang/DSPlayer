@@ -2,7 +2,7 @@
  * This file is part of the DSPlayer.
  *
  * Copyright (C) 2017 by Guoliang Xue <me@xueguoliang.cn>
- * WebSite http://www.xueguoliang.cn
+ * http://www.xueguoliang.cn
  *
  *
  * The DSPlayer is free software: you can redistribute it and/or modify
