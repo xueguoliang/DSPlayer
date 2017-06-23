@@ -56,6 +56,8 @@ public:
     QTreeWidget* treeWidget;
     QDockWidget* dock;
 
+    QString openDir;
+
     void keyPressEvent(QKeyEvent *ev);
 signals:
 

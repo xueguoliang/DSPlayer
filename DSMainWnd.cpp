@@ -153,12 +153,21 @@ void DSMainWnd::imageReady(QImage image)
 
 void DSMainWnd::onOpen()
 {
+    QString strFile = QFileDialog::getOpenFileName(NULL, "打开视频文件", openDir, "Video Files (*.mp4)");
+    if(strFile.length() == 0)
+    {
+        return;
+    }
+
+    openDir = QFileInfo(strFile).path();
+
     if(player) player->exit = true;
     QThread::msleep(100);
 
     player = new DSPlayer;
-    player->strFilename = "c:/users/xueguoliang/desktop/1.mp4";
+   // player->strFilename = "c:/users/xueguoliang/desktop/1.mp4";
     //    player->strFilename = "rtmp://192.168.1.152/live/abc";
+    player->strFilename = strFile;
     player->start();
     connect(player, SIGNAL(imageReady(QImage)),
             this, SLOT(imageReady(QImage)));
