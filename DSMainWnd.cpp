@@ -1,3 +1,24 @@
+/*
+ * This file is part of the DSPlayer.
+ *
+ * Copyright (C) 2017 by Guoliang Xue <me@xueguoliang.com>
+ * WebSite http://www.xueguoliang.cn
+ *
+ *
+ * The DSPlayer is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * The DSPlayer is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with the xs Library. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include "DSMainWnd.h"
 #include <QMenuBar>
 #include <QMetaMethod>
@@ -30,6 +51,28 @@ DSMainWnd::DSMainWnd(QWidget *parent) : QMainWindow(parent)
     connect(progress, SIGNAL(sliderReleased()), this, SLOT(sliderReleased()));
     connect(progress, SIGNAL(sliderMoved(int)), this, SLOT(sliderMoved(int)));
     connect(progress, SIGNAL(valueChanged(int)), this, SLOT(valueChanged(int)));
+
+    this->addDockWidget(Qt::LeftDockWidgetArea, dock = new QDockWidget);
+    dock->setWidget(this->treeWidget = new QTreeWidget);
+    treeWidget->setHeaderHidden(true);
+    dock->setWindowTitle("课程");
+    QDockWidget* dock1 = dock;
+
+    QTreeWidget* tmp;
+    this->addDockWidget(Qt::LeftDockWidgetArea, dock = new QDockWidget);
+    dock->setWidget(tmp = new QTreeWidget);
+    dock->setWindowTitle("聊天");
+    tmp->setHeaderHidden(true);
+    QDockWidget* dock2 = dock;
+
+    this->addDockWidget(Qt::LeftDockWidgetArea, dock = new QDockWidget);
+    dock->setWidget(tmp = new QTreeWidget);
+    tmp->setHeaderHidden(true);
+    dock->setWindowTitle("推荐");
+    QDockWidget* dock3 = dock;
+
+    this->tabifyDockWidget(dock1, dock2);
+    this->tabifyDockWidget(dock2, dock3);
 }
 
 void DSMainWnd::initMenus()
@@ -59,7 +102,10 @@ bool DSMainWnd::eventFilter(QObject *watched, QEvent *ev)
 
                 if(player && player->pause)
                 {
-                    p.drawText(screen->rect(), "暂停", QTextOption(Qt::AlignCenter));
+                    p.setRenderHint(QPainter::Antialiasing);
+                    p.setFont(QFont("宋体", 50, 700));
+                    p.setPen(Qt::red);
+                    p.drawText(screen->rect(), "Paused", QTextOption(Qt::AlignCenter));
                 }
             }
         }
@@ -118,10 +164,7 @@ void DSMainWnd::onOpen()
             this, SLOT(imageReady(QImage)));
     connect(player, SIGNAL(mediaReady()), this, SLOT(mediaReady()));
     status->setText("正在播放:"+player->strFilename);
-
     progressValue = 0;
-
-
     return;
 
 #if 0
@@ -197,9 +240,7 @@ void DSMainWnd::onSpeedChanged(double v)
 {
     bool pause = player->pause;
     QThread::msleep(20);
-
     player->initSwr(v);
-
     player->pause = pause;
 }
 
