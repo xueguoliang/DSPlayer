@@ -1,7 +1,7 @@
 /*
  * This file is part of the DSPlayer.
  *
- * Copyright (C) 2017 by Guoliang Xue <me@xueguoliang.com>
+ * Copyright (C) 2017 by Guoliang Xue <me@xueguoliang.cn>
  * WebSite http://www.xueguoliang.cn
  *
  *

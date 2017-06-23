@@ -15,3 +15,6 @@ SOURCES += \
     main.cpp \
     DSPlayer.cpp \
     DSMainWnd.cpp
+
+DISTFILES += \
+    README.md
